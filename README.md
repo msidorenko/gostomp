@@ -29,8 +29,15 @@ import (
 )
 
 func main(){
-    client := stomp.NewClient("tcp://localhost:61613")
-    client.Connect()
+    client, err := stomp.NewClient("tcp://localhost:61613")
+    if err != nil {
+    	panic(err)
+    }
+
+	err = client.Connect()
+	if err != nil {
+		panic(err)
+	}
 
     //Create new message
     msg := message.New("Message body")
@@ -47,7 +54,7 @@ func main(){
             client.Ack(msg)
         },
     }
-    err := client.Subscribe(subscription)
+    err = client.Subscribe(subscription)
     if err != nil {
         println("ERROR: " + err.Error())
     }
