@@ -34,10 +34,10 @@ func main(){
     	panic(err)
     }
 
-	err = client.Connect()
-	if err != nil {
-		panic(err)
-	}
+    err = client.Connect()
+    if err != nil {
+        panic(err)
+    }
 
     //Create new message
     msg := message.New("Message body")
