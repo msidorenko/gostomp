@@ -5,7 +5,7 @@ Just another implementation of a STOMP client library :-)
 Inspired by https://github.com/go-stomp/stomp 
 
 ### Todo
-- [ ] Producer sync mode
+- [x] Producer sync mode
 - [ ] Heart-beat  
 - [ ] Catch message broker errors
 - [ ] SSL support

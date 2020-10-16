@@ -16,11 +16,13 @@ const DELIVERY_ASYNC = false
 
 type Client struct {
 	connection Connection
-	session []Session
+	session    []Session
 }
 
+var ReceiptPool = make(map[string]chan *frame.Frame)
+
 //NewClient creat struct with basic settings for client connection
-func NewClient(dsn string) (*Client, error){
+func NewClient(dsn string) (*Client, error) {
 
 	u, err := url.Parse(dsn)
 	if err != nil {
@@ -29,7 +31,7 @@ func NewClient(dsn string) (*Client, error){
 
 	conn := Connection{
 		protocol: u.Scheme,
-		addr: u.Host,
+		addr:     u.Host,
 	}
 
 	if len(u.User.Username()) > 0 {
@@ -47,8 +49,7 @@ func NewClient(dsn string) (*Client, error){
 	return client, nil
 }
 
-
-func (client *Client) Connect() error{
+func (client *Client) Connect() error {
 
 	c, err := net.Dial(client.connection.protocol, client.connection.addr)
 	if err != nil {
@@ -95,11 +96,11 @@ func (client *Client) Connect() error{
 		client.session = append(client.session, Session{id: frm.Headers[frame.Session]})
 	}
 
-	go readLoop(client.connection, reader)
+	go readLoop(reader)
 	return nil
 }
 
-func (client *Client) Producer(msg *message.Message, deliveryMode bool){
+func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 	frm := frame.NewFrame("SEND", msg.GetBody())
 	frm.Headers[frame.Destination] = msg.GetDestination()
 	frm.Headers[frame.ContentLength] = strconv.Itoa(len(msg.GetBody()))
@@ -118,8 +119,9 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool){
 		frm.Headers[frame.MessageId] = msgId
 	}
 
-	if deliveryMode == DELIVERY_SYNC  {
-		frm.Headers[frame.Receipt] = frm.Headers[frame.MessageId]
+	if deliveryMode == DELIVERY_SYNC {
+		frm.Headers[frame.Receipt] = msgId
+		ReceiptPool[msgId] = make(chan *frame.Frame)
 	}
 
 	writer := NewWriter(client.connection.conn)
@@ -129,14 +131,17 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool){
 		println("Error: " + err.Error())
 	}
 
-	if deliveryMode == DELIVERY_SYNC  {
-		println("Procuder: " + msgId)
-		//@TODO сделать канал для получение ответа от сервера о получении сообщения
+	if deliveryMode == DELIVERY_SYNC {
+		_, ok := <-ReceiptPool[msgId]
+		if !ok {
+			return errors.New("ERROR: cannot get receipt  frame from channel")
+		}
+		close(ReceiptPool[msgId])
 	}
-
+	return nil
 }
 
-func (client *Client) Subscribe(subscription *Subscription) error{
+func (client *Client) Subscribe(subscription *Subscription) error {
 
 	subscription.GenerateID()
 
@@ -161,7 +166,7 @@ func (client *Client) Subscribe(subscription *Subscription) error{
 	return nil
 }
 
-func (client *Client) Unsubscribe(subscriptionId string){
+func (client *Client) Unsubscribe(subscriptionId string) {
 
 	frm := frame.NewFrame(frame.UNSUBSCRIBE)
 	frm.Headers[frame.Id] = subscriptionId
@@ -176,7 +181,7 @@ func (client *Client) Unsubscribe(subscriptionId string){
 
 }
 
-func (client *Client) Ack(message *message.Message){
+func (client *Client) Ack(message *message.Message) {
 	frm := frame.NewFrame(frame.ACK, "")
 	ackId, err := message.GetHeader(frame.Ack)
 	if err != nil {
@@ -193,7 +198,7 @@ func (client *Client) Ack(message *message.Message){
 
 }
 
-func (client *Client) NAck(message *message.Message){
+func (client *Client) NAck(message *message.Message) {
 	frm := frame.NewFrame(frame.NACK, "")
 	ackId, err := message.GetHeader(frame.Ack)
 	if err != nil {
@@ -210,7 +215,8 @@ func (client *Client) NAck(message *message.Message){
 
 }
 
-func readLoop(con Connection, reader *Reader){
+func readLoop(reader *Reader) {
+
 	for {
 		frm, err := reader.Read()
 		if err != nil {
@@ -222,10 +228,10 @@ func readLoop(con Connection, reader *Reader){
 		switch frm.Command {
 		case frame.MESSAGE:
 			transferFrameToSubscriptions(frm)
-			break;
+			break
 		case frame.RECEIPT:
-			//@TODO реализовать возврат подтверждения о получении емайла
-			break;
+			ReceiptPool[frm.Headers[frame.ReceiptId]] <- frm
+			break
 		}
 
 	}
