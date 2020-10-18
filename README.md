@@ -29,7 +29,7 @@ import (
 )
 
 func main(){
-    client, err := stomp.NewClient("tcp://localhost:61613")
+    client, err := gostomp.NewClient("tcp://localhost:61613")
     if err != nil {
     	panic(err)
     }
@@ -43,11 +43,12 @@ func main(){
     msg := message.New("Message body")
     msg.SetDestination("/queue/some_queue")
     
-    //Send message to message broker
-    client.Producer(msg)
+    //Send message to message broker 
+    //and wait confirm from server about message accept
+    client.Producer(msg, gostomp.DELIVERY_SYNC)
 
     //Init subscription and define callback function
-    subscription := &stomp.Subscription{
+    subscription := &gostomp.Subscription{
         Destination: "/queue/some_queue",
         Callback: func(msg *message.Message){
             println(msg.GetBody())
