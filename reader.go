@@ -3,9 +3,9 @@ package stomp
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"github.com/msidorenko/gostomp/frame"
 	"io"
-	"errors"
 	"strconv"
 )
 
@@ -86,7 +86,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 	//check content length
 	contentLength := 0
 	if cntLen, ok := f.Headers[frame.ContentLength]; !ok {
-		contentLength, _ = strconv.Atoi( cntLen )
+		contentLength, _ = strconv.Atoi(cntLen)
 	}
 
 	if contentLength > 0 {
@@ -126,6 +126,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 // read one line from input and strip off terminating LF or terminating CR-LF
 func (r *Reader) readLine() (line []byte, err error) {
 	line, err = r.reader.ReadBytes(newline)
+
 	if err != nil {
 		return
 	}
@@ -138,5 +139,3 @@ func (r *Reader) readLine() (line []byte, err error) {
 
 	return
 }
-
-

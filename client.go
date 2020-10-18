@@ -110,8 +110,8 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 		frm.Headers[k] = v
 	}
 
-	msgId, err := msg.GetHeader(frame.MessageId)
-	if err == nil {
+	msgId := msg.GetID()
+	if msgId != "" {
 		frm.Headers[frame.MessageId] = msgId
 	} else {
 		msgId := uuid.New().String()
@@ -126,7 +126,7 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 
 	writer := NewWriter(client.connection.conn)
 
-	err = writer.Write(frm)
+	err := writer.Write(frm)
 	if err != nil {
 		println("Error: " + err.Error())
 	}

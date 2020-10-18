@@ -4,16 +4,23 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/msidorenko/gostomp/frame"
+	"strconv"
+	"time"
+)
+
+const (
+	Persistent = "persistent"
+	Delay      = "AMQ_SCHEDULED_DELAY"
 )
 
 type Message struct {
 	headers map[string]string
-	body string
+	body    string
 }
 
 func NewFromFrame(frm *frame.Frame) *Message {
 	msg := &Message{
-		body: frm.Body,
+		body:    frm.Body,
 		headers: frm.Headers,
 	}
 	return msg
@@ -21,7 +28,7 @@ func NewFromFrame(frm *frame.Frame) *Message {
 
 func New(body string) *Message {
 	msg := &Message{
-		body: body,
+		body:    body,
 		headers: make(map[string]string),
 	}
 
@@ -30,7 +37,7 @@ func New(body string) *Message {
 	return msg
 }
 
-func (message *Message) SetBody(body string){
+func (message *Message) SetBody(body string) {
 	message.body = body
 }
 
@@ -38,7 +45,7 @@ func (message *Message) GetBody() string {
 	return message.body
 }
 
-func (message *Message) SetHeader(key, value string){
+func (message *Message) SetHeader(key, value string) {
 	message.headers[key] = value
 }
 
@@ -47,7 +54,6 @@ func (message *Message) GetHeaders() map[string]string {
 }
 
 func (message *Message) GetHeader(key string) (string, error) {
-
 	if value, ok := message.headers[key]; ok {
 		return value, nil
 	} else {
@@ -55,7 +61,7 @@ func (message *Message) GetHeader(key string) (string, error) {
 	}
 }
 
-func (message *Message) SetID(id string){
+func (message *Message) SetID(id string) {
 	message.headers[frame.MessageId] = id
 }
 
@@ -68,10 +74,36 @@ func (message *Message) GetID() string {
 	return id
 }
 
+func (message *Message) SetPersistent(persistence bool) {
+	if persistence {
+		message.headers[Persistent] = "true"
+	} else {
+		message.headers[Persistent] = "false"
+	}
+}
+
+func (message *Message) GetPersistent() bool {
+
+	if value, ok := message.headers[Persistent]; !ok {
+		//STOMP messages are non-persistent by default.
+		return false
+	} else {
+		if value == "true" {
+			return true
+		} else {
+			return false
+		}
+	}
+}
+
 func (message *Message) SetDestination(destination string) {
-	message.headers["destination"] = destination
+	message.headers[frame.Destination] = destination
 }
 
 func (message *Message) GetDestination() string {
-	return message.headers["destination"]
+	return message.headers[frame.Destination]
+}
+
+func (message *Message) SetDelay(delay time.Duration) {
+	message.headers[Delay] = strconv.FormatInt(delay.Milliseconds(), 10)
 }

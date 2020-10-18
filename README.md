@@ -10,7 +10,7 @@ Inspired by https://github.com/go-stomp/stomp
 - [ ] Catch message broker errors
 - [ ] SSL support
 - [ ] Examples for all cases
-- [ ] High level library: Topic/Queue, Request-reply pattern  
+- [ ] High level library: Topic/Queue  
 - [ ] Tests
 - [ ] Documentation
 - [ ] License
