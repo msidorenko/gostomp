@@ -18,14 +18,14 @@ Inspired by https://github.com/go-stomp/stomp
 ## Usage Instructions
 
 ```
-go get github.com/msidorenko/stomp
+go get github.com/msidorenko/gostomp
 ```
 
 ```go
 package main
 import (
-	"github.com/msidorenko/stomp"
-	"github.com/msidorenko/go-stomp/stomp/message"
+	"github.com/msidorenko/gostomp"
+	"github.com/msidorenko/gostomp/message"
 )
 
 func main(){
