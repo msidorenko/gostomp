@@ -1,9 +1,9 @@
-package stomp
+package gostomp
 
 import (
-"bufio"
-"io"
-"github.com/msidorenko/gostomp/frame"
+	"bufio"
+	"github.com/msidorenko/gostomp/frame"
+	"io"
 )
 
 // slices used to write frames
@@ -13,6 +13,7 @@ var (
 	newlineSlice = []byte{10}     // newline (LF)
 	nullSlice    = []byte{0}      // null character
 )
+
 // Writes STOMP frames to an underlying io.Writer.
 type Writer struct {
 	writer *bufio.Writer
@@ -22,7 +23,6 @@ type Writer struct {
 func NewWriter(writer io.Writer) *Writer {
 	return NewWriterSize(writer, 4096)
 }
-
 
 func NewWriterSize(writer io.Writer, bufferSize int) *Writer {
 	return &Writer{writer: bufio.NewWriterSize(writer, bufferSize)}

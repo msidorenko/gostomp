@@ -1,1 +1,1 @@
-package stomp
+package gostomp

@@ -1,10 +1,9 @@
-package stomp
+package gostomp
 
 import (
 	"bytes"
 	"strings"
 )
-
 
 var (
 	replacerForEncodeValue = strings.NewReplacer(
@@ -35,4 +34,3 @@ func unencodeValue(b []byte) (string, error) {
 	s := replacerForUnencodeValue.Replace(string(b))
 	return s, nil
 }
-
