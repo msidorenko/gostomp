@@ -14,7 +14,7 @@ var (
 	nullSlice    = []byte{0}      // null character
 )
 
-// Writes STOMP frames to an underlying io.Writer.
+// Writes STOMP frames to an underlying io.Writer
 type Writer struct {
 	writer *bufio.Writer
 }
