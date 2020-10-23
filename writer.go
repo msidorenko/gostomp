@@ -69,7 +69,7 @@ func (w *Writer) Write(f *frame.Frame) error {
 	}
 
 	if len(f.Body) > 0 {
-		_, err = w.writer.Write([]byte(f.Body))
+		_, err = w.writer.Write(f.Body)
 		if err != nil {
 			return err
 		}

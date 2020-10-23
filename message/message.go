@@ -15,7 +15,7 @@ const (
 
 type Message struct {
 	headers map[string]string
-	body    string
+	body    []byte
 }
 
 func NewFromFrame(frm *frame.Frame) *Message {
@@ -26,7 +26,7 @@ func NewFromFrame(frm *frame.Frame) *Message {
 	return msg
 }
 
-func New(body string) *Message {
+func New(body []byte) *Message {
 	msg := &Message{
 		body:    body,
 		headers: make(map[string]string),
@@ -37,11 +37,11 @@ func New(body string) *Message {
 	return msg
 }
 
-func (message *Message) SetBody(body string) {
+func (message *Message) SetBody(body []byte) {
 	message.body = body
 }
 
-func (message *Message) GetBody() string {
+func (message *Message) GetBody() []byte {
 	return message.body
 }
 

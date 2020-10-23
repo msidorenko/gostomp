@@ -21,7 +21,7 @@ type Client struct {
 
 var ReceiptPool = make(map[string]chan *frame.Frame)
 
-//NewClient creat struct with basic settings for client connection
+//NewClient create object with basic settings for client connection
 func NewClient(dsn string) (*Client, error) {
 
 	u, err := url.Parse(dsn)
@@ -49,6 +49,8 @@ func NewClient(dsn string) (*Client, error) {
 	return client, nil
 }
 
+//Connect method establish connection with the Message Broker server and authorize via CONNECT command
+//@TODO check all of servers for failover
 func (client *Client) Connect() error {
 
 	c, err := net.Dial(client.connection.protocol, client.connection.addr)
@@ -57,8 +59,10 @@ func (client *Client) Connect() error {
 	}
 
 	client.connection.conn = c
+	//After established network connection, we try send CONNECT frame to the message broker
+	connectFrame := frame.NewFrame(frame.CONNECT, []byte(""))
 
-	connectFrame := frame.NewFrame(frame.CONNECT, "")
+	//In some cases we need to do auth by login and password
 	if client.connection.login != "" {
 		connectFrame.AddHeader(frame.Login, client.connection.login)
 		if client.connection.password != "" {
@@ -96,10 +100,16 @@ func (client *Client) Connect() error {
 		client.session = append(client.session, Session{id: frm.Headers[frame.Session]})
 	}
 
+	//Start gourtine for continuously read from socket
 	go readLoop(reader)
 	return nil
 }
 
+//Producer method send a Message to the Message Broker
+//msg *message.Message
+//deliveryMode bool
+//async - just push frame to the socket and forget about it. deliveryMode == false
+//sync - push frame to the socket and wait confirm message from the Message broker. deliveryMode == true
 func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 	frm := frame.NewFrame("SEND", msg.GetBody())
 	frm.Headers[frame.Destination] = msg.GetDestination()
@@ -141,11 +151,12 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 	return nil
 }
 
+//Subscribe send SUBSCRIBE command to the Message Broker
 func (client *Client) Subscribe(subscription *Subscription) error {
 
 	subscription.GenerateID()
 
-	frm := frame.NewFrame(frame.SUBSCRIBE, "")
+	frm := frame.NewFrame(frame.SUBSCRIBE, []byte(""))
 	frm.Headers[frame.Destination] = subscription.Destination
 	frm.Headers[frame.Id] = subscription.GetID()
 
@@ -168,7 +179,7 @@ func (client *Client) Subscribe(subscription *Subscription) error {
 
 func (client *Client) Unsubscribe(subscriptionId string) {
 
-	frm := frame.NewFrame(frame.UNSUBSCRIBE)
+	frm := frame.NewFrame(frame.UNSUBSCRIBE, []byte(""))
 	frm.Headers[frame.Id] = subscriptionId
 
 	writer := NewWriter(client.connection.conn)
@@ -178,11 +189,10 @@ func (client *Client) Unsubscribe(subscriptionId string) {
 	}
 
 	removeSubscription(subscriptionId)
-
 }
 
 func (client *Client) Ack(message *message.Message) {
-	frm := frame.NewFrame(frame.ACK, "")
+	frm := frame.NewFrame(frame.ACK, []byte(""))
 	ackId, err := message.GetHeader(frame.Ack)
 	if err != nil {
 		return
@@ -199,7 +209,8 @@ func (client *Client) Ack(message *message.Message) {
 }
 
 func (client *Client) NAck(message *message.Message) {
-	frm := frame.NewFrame(frame.NACK, "")
+
+	frm := frame.NewFrame(frame.NACK, []byte(""))
 	ackId, err := message.GetHeader(frame.Ack)
 	if err != nil {
 		return
@@ -216,7 +227,6 @@ func (client *Client) NAck(message *message.Message) {
 }
 
 func readLoop(reader *Reader) {
-
 	for {
 		frm, err := reader.Read()
 		if err != nil {
@@ -231,6 +241,8 @@ func readLoop(reader *Reader) {
 			break
 		case frame.RECEIPT:
 			ReceiptPool[frm.Headers[frame.ReceiptId]] <- frm
+			break
+		case frame.ERROR:
 			break
 		}
 

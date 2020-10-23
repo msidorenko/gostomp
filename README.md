@@ -54,7 +54,7 @@ func main(){
             println(msg.GetBody())
             client.Ack(msg)
         },
-    }
+    }   
     err = client.Subscribe(subscription)
     if err != nil {
         println("ERROR: " + err.Error())

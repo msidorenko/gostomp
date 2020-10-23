@@ -1,7 +1,5 @@
 package frame
 
-import "strings"
-
 const (
 	ContentLength = "content-length"
 	ContentType   = "content-type"
@@ -24,19 +22,17 @@ const (
 	Message       = "message"
 )
 
-
-
 type Frame struct {
 	Command string
 	Headers map[string]string
-	Body string
+	Body    []byte
 }
 
+func NewFrame(command string, body []byte) *Frame {
 
-func NewFrame(command string, body ...string) *Frame{
 	frame := &Frame{
 		Command: command,
-		Body: strings.Join(body, ""),
+		Body:    body,
 		Headers: make(map[string]string),
 	}
 

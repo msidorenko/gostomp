@@ -41,7 +41,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 		return nil, nil
 	}
 
-	f := frame.NewFrame(string(commandLine))
+	f := frame.NewFrame(string(commandLine), []byte(""))
 
 	switch f.Command {
 	case frame.CONNECT, frame.STOMP, frame.SEND, frame.SUBSCRIBE,
@@ -108,7 +108,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 			return nil, errors.New("invalid frame format")
 		}
 
-		f.Body = string(body)
+		f.Body = body
 
 	} else {
 		body, err := r.reader.ReadBytes(nullByte)
@@ -117,7 +117,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 		}
 		// remove trailing null
 		body = body[0 : len(body)-1]
-		f.Body = string(body)
+		f.Body = body
 	}
 
 	return f, nil
