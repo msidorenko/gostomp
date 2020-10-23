@@ -40,7 +40,7 @@ func main(){
     }
 
     //Create new message
-    msg := message.New("Message body")
+    msg := message.New([]byte("Message body"))
     msg.SetDestination("/queue/some_queue")
     
     //Send message to message broker 
@@ -51,7 +51,7 @@ func main(){
     subscription := &gostomp.Subscription{
         Destination: "/queue/some_queue",
         Callback: func(msg *message.Message){
-            println(msg.GetBody())
+            println(string(msg.GetBody()))
             client.Ack(msg)
         },
     }   
