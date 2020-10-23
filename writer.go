@@ -20,11 +20,7 @@ type Writer struct {
 }
 
 // Creates a new Writer object, which writes to an underlying io.Writer.
-func NewWriter(writer io.Writer) *Writer {
-	return NewWriterSize(writer, 4096)
-}
-
-func NewWriterSize(writer io.Writer, bufferSize int) *Writer {
+func NewWriter(writer io.Writer, bufferSize int) *Writer {
 	return &Writer{writer: bufio.NewWriterSize(writer, bufferSize)}
 }
 

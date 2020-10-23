@@ -10,22 +10,17 @@ import (
 )
 
 const (
-	bufferSize = 4096
-	newline    = byte(10)
-	cr         = byte(13)
-	colon      = byte(58)
-	nullByte   = byte(0)
+	newline  = byte(10)
+	cr       = byte(13)
+	colon    = byte(58)
+	nullByte = byte(0)
 )
 
 type Reader struct {
 	reader *bufio.Reader
 }
 
-func NewReader(reader io.Reader) *Reader {
-	return NewReaderSize(reader, bufferSize)
-}
-
-func NewReaderSize(reader io.Reader, bufferSize int) *Reader {
+func NewReader(reader io.Reader, bufferSize int) *Reader {
 	return &Reader{reader: bufio.NewReaderSize(reader, bufferSize)}
 }
 

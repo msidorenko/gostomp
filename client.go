@@ -23,7 +23,6 @@ var ReceiptPool = make(map[string]chan *frame.Frame)
 
 //NewClient create object with basic settings for client connection
 func NewClient(dsn string) (*Client, error) {
-
 	u, err := url.Parse(dsn)
 	if err != nil {
 		return nil, err
@@ -52,7 +51,6 @@ func NewClient(dsn string) (*Client, error) {
 //Connect method establish connection with the Message Broker server and authorize via CONNECT command
 //@TODO check all of servers for failover
 func (client *Client) Connect() error {
-
 	c, err := net.Dial(client.connection.protocol, client.connection.addr)
 	if err != nil {
 		return err
@@ -79,14 +77,12 @@ func (client *Client) Connect() error {
 
 	connectFrame.AddHeader(frame.Receipt, uuid.New().String())
 
-	writer := NewWriter(client.connection.conn)
-	reader := NewReader(client.connection.conn)
-
-	err = writer.Write(connectFrame)
+	err = client.sender(connectFrame)
 	if err != nil {
 		return err
 	}
 
+	reader := NewReader(client.connection.conn, 4096)
 	frm, err := reader.Read()
 	if err != nil {
 		return err
@@ -134,11 +130,9 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 		ReceiptPool[msgId] = make(chan *frame.Frame)
 	}
 
-	writer := NewWriter(client.connection.conn)
-
-	err := writer.Write(frm)
+	err := client.sender(frm)
 	if err != nil {
-		println("Error: " + err.Error())
+		return err
 	}
 
 	if deliveryMode == DELIVERY_SYNC {
@@ -153,7 +147,6 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 
 //Subscribe send SUBSCRIBE command to the Message Broker
 func (client *Client) Subscribe(subscription *Subscription) error {
-
 	subscription.GenerateID()
 
 	frm := frame.NewFrame(frame.SUBSCRIBE, []byte(""))
@@ -166,8 +159,7 @@ func (client *Client) Subscribe(subscription *Subscription) error {
 		frm.Headers[frame.Ack] = subscription.Ack
 	}
 
-	writer := NewWriter(client.connection.conn)
-	err := writer.Write(frm)
+	err := client.sender(frm)
 	if err != nil {
 		println("Error: " + err.Error())
 		return errors.New("Cannot subscribe to " + subscription.Destination + ". Reason: " + err.Error())
@@ -178,12 +170,10 @@ func (client *Client) Subscribe(subscription *Subscription) error {
 }
 
 func (client *Client) Unsubscribe(subscriptionId string) {
-
 	frm := frame.NewFrame(frame.UNSUBSCRIBE, []byte(""))
 	frm.Headers[frame.Id] = subscriptionId
 
-	writer := NewWriter(client.connection.conn)
-	err := writer.Write(frm)
+	err := client.sender(frm)
 	if err != nil {
 		println("Error: " + err.Error())
 	}
@@ -200,8 +190,7 @@ func (client *Client) Ack(message *message.Message) {
 		frm.Headers[frame.Id] = ackId
 	}
 
-	writer := NewWriter(client.connection.conn)
-	err = writer.Write(frm)
+	err = client.sender(frm)
 	if err != nil {
 		println("Error: " + err.Error())
 	}
@@ -209,7 +198,6 @@ func (client *Client) Ack(message *message.Message) {
 }
 
 func (client *Client) NAck(message *message.Message) {
-
 	frm := frame.NewFrame(frame.NACK, []byte(""))
 	ackId, err := message.GetHeader(frame.Ack)
 	if err != nil {
@@ -218,12 +206,19 @@ func (client *Client) NAck(message *message.Message) {
 		frm.Headers[frame.Id] = ackId
 	}
 
-	writer := NewWriter(client.connection.conn)
-	err = writer.Write(frm)
+	err = client.sender(frm)
 	if err != nil {
 		println("Error: " + err.Error())
 	}
+}
 
+func (client *Client) sender(frm *frame.Frame) error {
+	writer := NewWriter(client.connection.conn, 4096)
+	err := writer.Write(frm)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func readLoop(reader *Reader) {
