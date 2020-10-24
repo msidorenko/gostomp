@@ -5,13 +5,14 @@ import (
 	"bytes"
 	"errors"
 	"github.com/msidorenko/gostomp/frame"
+	"github.com/msidorenko/gostomp/message"
 	"io"
 	"strconv"
 )
 
 const (
-	newline  = byte(10)
-	cr       = byte(13)
+	newline = byte(10)
+	//cr       = byte(13)
 	colon    = byte(58)
 	nullByte = byte(0)
 )
@@ -26,62 +27,60 @@ func NewReader(reader io.Reader, bufferSize int) *Reader {
 
 func (r *Reader) Read() (*frame.Frame, error) {
 
-	commandLine, err := r.readLine()
+	command, err := r.readLine()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(commandLine) == 0 {
+	if len(command) == 0 {
 		// received a heart-beat newline char (or cr-lf)
 		return nil, nil
 	}
 
-	f := frame.NewFrame(string(commandLine), []byte(""))
+	f := frame.NewFrame(string(command), []byte(""))
 
 	switch f.Command {
-	case frame.CONNECT, frame.STOMP, frame.SEND, frame.SUBSCRIBE,
-		frame.UNSUBSCRIBE, frame.ACK, frame.NACK, frame.BEGIN,
-		frame.COMMIT, frame.ABORT, frame.DISCONNECT, frame.CONNECTED,
+	case frame.CONNECT, frame.CONNECTED, frame.DISCONNECT, frame.STOMP, frame.SEND,
+		frame.SUBSCRIBE, frame.UNSUBSCRIBE,
+		frame.ACK, frame.NACK,
 		frame.MESSAGE, frame.RECEIPT, frame.ERROR:
-		// valid command
 	default:
 		return nil, errors.New("invalid command")
 	}
 
-	//read headers
+	//read and parse headers block
 	for {
-		headerLine, err := r.readLine()
+		header, err := r.readLine()
 		if err != nil {
 			return nil, err
 		}
 
-		if len(headerLine) == 0 {
-			// empty line means end of headers
+		if len(header) == 0 {
+			// empty line when catch end of headers
 			break
 		}
 
-		index := bytes.IndexByte(headerLine, colon)
-		if index <= 0 {
+		posOfColon := bytes.IndexByte(header, colon)
+		if posOfColon <= 0 {
 			// colon is missing or header name is zero length
 			return nil, errors.New("invalid frame format")
 		}
 
-		key, err := unencodeValue(headerLine[0:index])
+		headerKey, err := decodeValue(header[0:posOfColon])
 		if err != nil {
 			return nil, err
 		}
-		value, err := unencodeValue(headerLine[index+1:])
+		headerValue, err := decodeValue(header[posOfColon+1:])
 		if err != nil {
 			return nil, err
 		}
 
-		f.AddHeader(key, value)
+		f.AddHeader(headerKey, headerValue)
 	}
 
-	//check content length
 	contentLength := 0
-	if cntLen, ok := f.Headers[frame.ContentLength]; !ok {
-		contentLength, _ = strconv.Atoi(cntLen)
+	if headerContentLength, isset := f.Headers[message.ContentLength]; isset {
+		contentLength, _ = strconv.Atoi(headerContentLength)
 	}
 
 	if contentLength > 0 {
@@ -94,13 +93,13 @@ func (r *Reader) Read() (*frame.Frame, error) {
 			bytesRead += n
 		}
 
-		// read the next byte and verify that it is a null byte
-		terminator, err := r.reader.ReadByte()
+		tmp, err := r.reader.ReadByte()
 		if err != nil {
 			return nil, err
 		}
-		if terminator != 0 {
-			return nil, errors.New("invalid frame format")
+		// if next byte not null, then we have a problem with frame format
+		if tmp != 0 {
+			return nil, errors.New("Content length in fact more than header value. Invalid frame format")
 		}
 
 		f.Body = body
@@ -110,7 +109,6 @@ func (r *Reader) Read() (*frame.Frame, error) {
 		if err != nil {
 			return nil, err
 		}
-		// remove trailing null
 		body = body[0 : len(body)-1]
 		f.Body = body
 	}
@@ -118,7 +116,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 	return f, nil
 }
 
-// read one line from input and strip off terminating LF or terminating CR-LF
+//readLine read a line from input and strip LF or CR-LF
 func (r *Reader) readLine() (line []byte, err error) {
 	line, err = r.reader.ReadBytes(newline)
 

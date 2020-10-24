@@ -9,8 +9,31 @@ import (
 )
 
 const (
-	Persistent = "persistent"
-	Delay      = "AMQ_SCHEDULED_DELAY"
+	Host      = "host"
+	Version   = "version"
+	Login     = "login"
+	Passcode  = "passcode"
+	Heartbeat = "heart-beat"
+
+	ContentLength = "content-length"
+	ContentType   = "content-type"
+	AcceptVersion = "accept-version"
+	Session       = "session"
+	Server        = "server"
+	Destination   = "destination"
+	Id            = "id"
+	Ack           = "ack"
+	ReceiptId     = "receipt-id"
+	Subscription  = "subscription"
+	MessageId     = "message-id"
+	Message_      = "message"
+	Receipt       = "receipt"
+
+	//ActiveMQ specific
+	ReplyTo       = "reply-to"
+	CorrelationId = "correlation-id"
+	Persistent    = "persistent"
+	Delay         = "AMQ_SCHEDULED_DELAY"
 )
 
 type Message struct {
@@ -32,7 +55,7 @@ func New(body []byte) *Message {
 		headers: make(map[string]string),
 	}
 
-	msg.SetHeader(frame.MessageId, uuid.New().String())
+	msg.SetHeader(MessageId, uuid.New().String())
 
 	return msg
 }
@@ -62,12 +85,12 @@ func (message *Message) GetHeader(key string) (string, error) {
 }
 
 func (message *Message) SetID(id string) {
-	message.headers[frame.MessageId] = id
+	message.headers[MessageId] = id
 }
 
 func (message *Message) GetID() string {
 
-	id, err := message.GetHeader(frame.MessageId)
+	id, err := message.GetHeader(MessageId)
 	if err != nil {
 		return ""
 	}
@@ -97,13 +120,26 @@ func (message *Message) GetPersistent() bool {
 }
 
 func (message *Message) SetDestination(destination string) {
-	message.headers[frame.Destination] = destination
+	message.headers[Destination] = destination
 }
 
 func (message *Message) GetDestination() string {
-	return message.headers[frame.Destination]
+	return message.headers[Destination]
 }
 
 func (message *Message) SetDelay(delay time.Duration) {
 	message.headers[Delay] = strconv.FormatInt(delay.Milliseconds(), 10)
+}
+
+func (message *Message) SetCorrelationId(correlationId string) {
+	message.headers[CorrelationId] = correlationId
+}
+
+func (message *Message) GetCorrelationId() string {
+	if value, ok := message.headers[CorrelationId]; !ok {
+		return ""
+	} else {
+		return value
+	}
+
 }

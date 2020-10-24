@@ -62,20 +62,20 @@ func (client *Client) Connect() error {
 
 	//In some cases we need to do auth by login and password
 	if client.connection.login != "" {
-		connectFrame.AddHeader(frame.Login, client.connection.login)
+		connectFrame.AddHeader(message.Login, client.connection.login)
 		if client.connection.password != "" {
-			connectFrame.AddHeader(frame.Passcode, client.connection.password)
+			connectFrame.AddHeader(message.Passcode, client.connection.password)
 		}
 	}
 
-	connectFrame.AddHeader(frame.AcceptVersion, "1.0,1.1,1.2")
+	connectFrame.AddHeader(message.AcceptVersion, "1.0,1.1,1.2")
 
 	host, _, err := net.SplitHostPort(client.connection.addr)
 	if err == nil {
-		connectFrame.AddHeader(frame.Host, host)
+		connectFrame.AddHeader(message.Host, host)
 	}
 
-	connectFrame.AddHeader(frame.Receipt, uuid.New().String())
+	connectFrame.AddHeader(message.Receipt, uuid.New().String())
 
 	err = client.sender(connectFrame)
 	if err != nil {
@@ -89,11 +89,11 @@ func (client *Client) Connect() error {
 	}
 
 	if frm != nil {
-		client.connection.server = frm.Headers[frame.Server]
-		client.connection.version = strings.Split(frm.Headers[frame.Session], ",")
-		client.connection.heaetbeat = frm.Headers[frame.HeartBeat]
+		client.connection.server = frm.Headers[message.Server]
+		client.connection.version = strings.Split(frm.Headers[message.Session], ",")
+		client.connection.heaetbeat = frm.Headers[message.Heartbeat]
 		client.session = make([]Session, 0)
-		client.session = append(client.session, Session{id: frm.Headers[frame.Session]})
+		client.session = append(client.session, Session{id: frm.Headers[message.Session]})
 	}
 
 	//Start gourtine for continuously read from socket
@@ -108,9 +108,9 @@ func (client *Client) Connect() error {
 //sync - push frame to the socket and wait confirm message from the Message broker. deliveryMode == true
 func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 	frm := frame.NewFrame("SEND", msg.GetBody())
-	frm.Headers[frame.Destination] = msg.GetDestination()
-	frm.Headers[frame.ContentLength] = strconv.Itoa(len(msg.GetBody()))
-	frm.Headers[frame.ContentType] = "text/plain"
+	frm.Headers[message.Destination] = msg.GetDestination()
+	frm.Headers[message.ContentLength] = strconv.Itoa(len(msg.GetBody()))
+	frm.Headers[message.ContentType] = "text/plain"
 
 	for k, v := range msg.GetHeaders() {
 		frm.Headers[k] = v
@@ -118,15 +118,15 @@ func (client *Client) Producer(msg *message.Message, deliveryMode bool) error {
 
 	msgId := msg.GetID()
 	if msgId != "" {
-		frm.Headers[frame.MessageId] = msgId
+		frm.Headers[message.MessageId] = msgId
 	} else {
 		msgId := uuid.New().String()
 		msg.SetID(msgId)
-		frm.Headers[frame.MessageId] = msgId
+		frm.Headers[message.MessageId] = msgId
 	}
 
 	if deliveryMode == DELIVERY_SYNC {
-		frm.Headers[frame.Receipt] = msgId
+		frm.Headers[message.Receipt] = msgId
 		ReceiptPool[msgId] = make(chan *frame.Frame)
 	}
 
@@ -150,13 +150,13 @@ func (client *Client) Subscribe(subscription *Subscription) error {
 	subscription.GenerateID()
 
 	frm := frame.NewFrame(frame.SUBSCRIBE, []byte(""))
-	frm.Headers[frame.Destination] = subscription.Destination
-	frm.Headers[frame.Id] = subscription.GetID()
+	frm.Headers[message.Destination] = subscription.Destination
+	frm.Headers[message.Id] = subscription.GetID()
 
 	if subscription.Ack == "" {
-		frm.Headers[frame.Ack] = ACK_AUTO
+		frm.Headers[message.Ack] = ACK_AUTO
 	} else {
-		frm.Headers[frame.Ack] = subscription.Ack
+		frm.Headers[message.Ack] = subscription.Ack
 	}
 
 	err := client.sender(frm)
@@ -171,7 +171,7 @@ func (client *Client) Subscribe(subscription *Subscription) error {
 
 func (client *Client) Unsubscribe(subscriptionId string) {
 	frm := frame.NewFrame(frame.UNSUBSCRIBE, []byte(""))
-	frm.Headers[frame.Id] = subscriptionId
+	frm.Headers[message.Id] = subscriptionId
 
 	err := client.sender(frm)
 	if err != nil {
@@ -181,13 +181,13 @@ func (client *Client) Unsubscribe(subscriptionId string) {
 	removeSubscription(subscriptionId)
 }
 
-func (client *Client) Ack(message *message.Message) {
+func (client *Client) Ack(msg *message.Message) {
 	frm := frame.NewFrame(frame.ACK, []byte(""))
-	ackId, err := message.GetHeader(frame.Ack)
+	ackId, err := msg.GetHeader(message.Ack)
 	if err != nil {
 		return
 	} else {
-		frm.Headers[frame.Id] = ackId
+		frm.Headers[message.Id] = ackId
 	}
 
 	err = client.sender(frm)
@@ -197,13 +197,13 @@ func (client *Client) Ack(message *message.Message) {
 
 }
 
-func (client *Client) NAck(message *message.Message) {
+func (client *Client) NAck(msg *message.Message) {
 	frm := frame.NewFrame(frame.NACK, []byte(""))
-	ackId, err := message.GetHeader(frame.Ack)
+	ackId, err := msg.GetHeader(message.Ack)
 	if err != nil {
 		return
 	} else {
-		frm.Headers[frame.Id] = ackId
+		frm.Headers[message.Id] = ackId
 	}
 
 	err = client.sender(frm)
@@ -235,7 +235,7 @@ func readLoop(reader *Reader) {
 			transferFrameToSubscriptions(frm)
 			break
 		case frame.RECEIPT:
-			ReceiptPool[frm.Headers[frame.ReceiptId]] <- frm
+			ReceiptPool[frm.Headers[message.ReceiptId]] <- frm
 			break
 		case frame.ERROR:
 			break

@@ -6,13 +6,13 @@ import (
 )
 
 var (
-	replacerForEncodeValue = strings.NewReplacer(
+	replacerEncodeValues = strings.NewReplacer(
 		"\\", "\\\\",
 		"\r", "\\r",
 		"\n", "\\n",
 		":", "\\c",
 	)
-	replacerForUnencodeValue = strings.NewReplacer(
+	replacerDecodeValues = strings.NewReplacer(
 		"\\r", "\r",
 		"\\n", "\n",
 		"\\c", ":",
@@ -24,13 +24,13 @@ var (
 func encodeValue(s string) []byte {
 	var buf bytes.Buffer
 	buf.Grow(len(s))
-	replacerForEncodeValue.WriteString(&buf, s)
+	replacerEncodeValues.WriteString(&buf, s)
 	return buf.Bytes()
 }
 
 // Unencodes a header value using STOMP value encoding
 // TODO: return error if invalid sequences found (eg "\t")
-func unencodeValue(b []byte) (string, error) {
-	s := replacerForUnencodeValue.Replace(string(b))
+func decodeValue(b []byte) (string, error) {
+	s := replacerDecodeValues.Replace(string(b))
 	return s, nil
 }

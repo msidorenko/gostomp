@@ -1,25 +1,21 @@
 package frame
 
 const (
-	// Connect commands.
-	CONNECT   = "CONNECT"
-	STOMP     = "STOMP"
-	CONNECTED = "CONNECTED"
+	// Connections commands
+	CONNECT    = "CONNECT"
+	CONNECTED  = "CONNECTED"
+	STOMP      = "STOMP"
+	DISCONNECT = "DISCONNECT"
 
-	// Client commands.
+	// Client commands
 	SEND        = "SEND"
 	SUBSCRIBE   = "SUBSCRIBE"
 	UNSUBSCRIBE = "UNSUBSCRIBE"
 	ACK         = "ACK"
 	NACK        = "NACK"
-	BEGIN       = "BEGIN"
-	COMMIT      = "COMMIT"
-	ABORT       = "ABORT"
-	DISCONNECT  = "DISCONNECT"
 
-	// Server commands.
+	// Server commands
 	MESSAGE = "MESSAGE"
 	RECEIPT = "RECEIPT"
 	ERROR   = "ERROR"
 )
-

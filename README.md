@@ -13,7 +13,7 @@ Inspired by https://github.com/go-stomp/stomp
 - [ ] High level library: Topic/Queue  
 - [ ] Tests
 - [ ] Documentation
-- [ ] License
+- [x] License
 
 ## Usage Instructions
 
@@ -45,7 +45,10 @@ func main(){
     
     //Send message to message broker 
     //and wait confirm from server about message accept
-    client.Producer(msg, gostomp.DELIVERY_SYNC)
+    err = client.Producer(msg, gostomp.DELIVERY_SYNC)
+    if err != nil {
+    	panic(err)
+    }
 
     //Init subscription and define callback function
     subscription := &gostomp.Subscription{
@@ -59,8 +62,22 @@ func main(){
     if err != nil {
         println("ERROR: " + err.Error())
     }
+    
+    for {}
 }
 ```
 
-## License
-Later. But this library always be free for usage.
+## License 
+Copyright [2020] Maxim Sidorenko
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
