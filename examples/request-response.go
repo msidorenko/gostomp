@@ -4,6 +4,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/msidorenko/gostomp"
 	"github.com/msidorenko/gostomp/message"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -80,9 +83,7 @@ func main() {
 					//Catch error if Producer cannot send response message.
 					println(err.Error())
 				}
-
 			}
-
 			client.Ack(msg)
 		},
 	}
@@ -93,7 +94,21 @@ func main() {
 		println("ERROR: " + err.Error())
 	}
 
-	//Wait. Don't forget interrupt process :-)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	for {
+		select {
+		case <-sigs:
+			err = client.Disconnect()
+			if err != nil {
+				println(err.Error())
+				os.Exit(1)
+			}
+			println("bye bye :-)")
+			os.Exit(0)
+			break
+
+		}
 	}
+
 }

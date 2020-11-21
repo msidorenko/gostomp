@@ -29,8 +29,9 @@ func NewClient(dsn string) (*Client, error) {
 	}
 
 	conn := Connection{
-		protocol: u.Scheme,
-		addr:     u.Host,
+		protocol:      u.Scheme,
+		addr:          u.Host,
+		tryDisconnect: false,
 	}
 
 	if len(u.User.Username()) > 0 {
@@ -98,6 +99,30 @@ func (client *Client) Connect() error {
 
 	//Start gourtine for continuously read from socket
 	go readLoop(reader)
+	return nil
+}
+
+//Disconnect method will close connection with Message broker
+//Client send DISCONNECT header with receipt header and wait for ack from message broker
+//@TODO add support multiply servers
+func (client *Client) Disconnect() error {
+
+	client.connection.tryDisconnect = true
+
+	frm := frame.NewFrame(frame.DISCONNECT, nil)
+	frm.Headers[message.Receipt] = "77"
+	ReceiptPool["77"] = make(chan *frame.Frame)
+
+	err := client.sender(frm)
+	if err != nil {
+		return err
+	}
+
+	_, ok := <-ReceiptPool["77"]
+	if !ok {
+		return errors.New("ERROR: cannot get receipt  frame from channel")
+	}
+	close(ReceiptPool["77"])
 	return nil
 }
 
@@ -213,6 +238,11 @@ func (client *Client) NAck(msg *message.Message) {
 }
 
 func (client *Client) sender(frm *frame.Frame) error {
+
+	if client.connection.tryDisconnect {
+		return errors.New("Disconnect in progress. Clients MUST NOT send any more frames after the DISCONNECT frame is sent.")
+	}
+
 	writer := NewWriter(client.connection.conn, 4096)
 	err := writer.Write(frm)
 	if err != nil {
