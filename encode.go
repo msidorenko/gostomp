@@ -29,7 +29,6 @@ func encodeValue(s string) []byte {
 }
 
 // Unencodes a header value using STOMP value encoding
-// TODO: return error if invalid sequences found (eg "\t")
 func decodeValue(b []byte) (string, error) {
 	s := replacerDecodeValues.Replace(string(b))
 	return s, nil

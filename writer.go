@@ -24,9 +24,8 @@ func NewWriter(writer io.Writer, bufferSize int) *Writer {
 	return &Writer{writer: bufio.NewWriterSize(writer, bufferSize)}
 }
 
-func (w *Writer) Write(f *frame.Frame) error {
-
-	_, err := w.writer.Write([]byte(f.Command))
+func (w *Writer) Write(frm *frame.Frame) error {
+	_, err := w.writer.Write([]byte(frm.Command))
 	if err != nil {
 		return err
 	}
@@ -36,9 +35,10 @@ func (w *Writer) Write(f *frame.Frame) error {
 		return err
 	}
 
-	//println("TX:", f.Command)
-	if len(f.Headers) > 0 {
-		for key, value := range f.Headers {
+	//println("TX:", frm.Command)
+	if len(frm.Headers) > 0 {
+		for key, value := range frm.Headers {
+			//println(key + ": " + value)
 			_, err = w.writer.Write(encodeValue(key))
 			if err != nil {
 				return err
@@ -64,8 +64,8 @@ func (w *Writer) Write(f *frame.Frame) error {
 		return err
 	}
 
-	if len(f.Body) > 0 {
-		_, err = w.writer.Write(f.Body)
+	if len(frm.Body) > 0 {
+		_, err = w.writer.Write(frm.Body)
 		if err != nil {
 			return err
 		}

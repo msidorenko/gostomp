@@ -2,13 +2,11 @@
 
 Just another implementation of a STOMP client library :-)
 
-Inspired by https://github.com/go-stomp/stomp 
-
 ### Todo
 - [x] Producer sync mode
 - [ ] Heart-beat  
 - [ ] Catch message broker errors
-- [ ] SSL support
+- [x] SSL support
 - [ ] Examples for all cases
 - [ ] High level library: Topic/Queue  
 - [ ] Tests
@@ -24,6 +22,9 @@ go get github.com/msidorenko/gostomp
 ```go
 package main
 import (
+	"os"
+	"os/signal"
+	"syscall"
 	"github.com/msidorenko/gostomp"
 	"github.com/msidorenko/gostomp/message"
 )
@@ -62,10 +63,27 @@ func main(){
     if err != nil {
         println("ERROR: " + err.Error())
     }
-    
-    for {}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	for {
+		select {
+		case <-sigs:
+			err = client.Disconnect()
+			if err != nil {
+				println(err.Error())
+				os.Exit(1)
+			}
+			println("bye bye :-)")
+			os.Exit(0)
+		}
+	}
 }
 ```
+
+
+### P.S.
+Inspired by https://github.com/go-stomp/stomp
 
 ## License 
 Copyright [2020] Maxim Sidorenko

@@ -28,6 +28,7 @@ const (
 	MessageId     = "message-id"
 	Message_      = "message"
 	Receipt       = "receipt"
+	TimeStamp     = "timestamp "
 
 	//ActiveMQ specific
 	ReplyTo       = "reply-to"

@@ -3,16 +3,23 @@ package gostomp
 import "io"
 
 type Connection struct {
-	protocol      string
-	addr          string
-	login         string
-	password      string
-	conn          io.ReadWriteCloser
-	options       ConnectionOptions
-	server        string
-	version       []string
-	heaetbeat     string
-	tryDisconnect bool
+	ssl             bool
+	sslConfig       SSLConfig
+	protocol        string
+	addr            string
+	login           string
+	password        string
+	conn            io.ReadWriteCloser
+	options         ConnectionOptions
+	server          string
+	version         []string
+	heartBeatClient int
+	heartBeatServer int
+	tryDisconnect   bool
+}
+
+type SSLConfig struct {
+	InsecureSkipVerify bool
 }
 
 type Session struct {

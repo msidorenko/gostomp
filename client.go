@@ -1,12 +1,14 @@
 package gostomp
 
 import (
+	"crypto/tls"
 	"errors"
 	"github.com/google/uuid"
 	"github.com/msidorenko/gostomp/frame"
 	"github.com/msidorenko/gostomp/message"
 	"net"
 	"net/url"
+
 	"strconv"
 	"strings"
 )
@@ -29,9 +31,26 @@ func NewClient(dsn string) (*Client, error) {
 	}
 
 	conn := Connection{
-		protocol:      u.Scheme,
-		addr:          u.Host,
-		tryDisconnect: false,
+		ssl:             false,
+		protocol:        u.Scheme,
+		addr:            u.Host,
+		tryDisconnect:   false,
+		heartBeatServer: 0,
+		heartBeatClient: 0,
+	}
+
+	if u.Scheme == "ssl" {
+		conn.protocol = "tcp"
+		conn.ssl = true
+
+		insecure := false
+		if u.Query().Get("insecure") == "true" {
+			insecure = true
+		}
+
+		conn.sslConfig = SSLConfig{
+			InsecureSkipVerify: insecure,
+		}
 	}
 
 	if len(u.User.Username()) > 0 {
@@ -41,6 +60,13 @@ func NewClient(dsn string) (*Client, error) {
 	password, isset := u.User.Password()
 	if isset {
 		conn.password = password
+	}
+
+	hb := u.Query().Get("heart-beat")
+	if len(hb) > 0 {
+		hbsettings := strings.Split(hb, ",")
+		conn.heartBeatClient, _ = strconv.Atoi(hbsettings[0])
+		conn.heartBeatServer, _ = strconv.Atoi(hbsettings[1])
 	}
 
 	client := &Client{
@@ -57,7 +83,22 @@ func (client *Client) Connect() error {
 		return err
 	}
 
-	client.connection.conn = c
+	if client.connection.ssl {
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: client.connection.sslConfig.InsecureSkipVerify,
+		}
+
+		c := tls.Client(c, tlsConfig)
+		err = c.Handshake()
+		if err != nil {
+			println(err.Error())
+		} else {
+			client.connection.conn = c
+		}
+	} else {
+		client.connection.conn = c
+	}
+
 	//After established network connection, we try send CONNECT frame to the message broker
 	connectFrame := frame.NewFrame(frame.CONNECT, []byte(""))
 
@@ -76,6 +117,7 @@ func (client *Client) Connect() error {
 		connectFrame.AddHeader(message.Host, host)
 	}
 
+	connectFrame.AddHeader(message.Heartbeat, strconv.Itoa(client.connection.heartBeatClient)+","+strconv.Itoa(client.connection.heartBeatServer))
 	connectFrame.AddHeader(message.Receipt, uuid.New().String())
 
 	err = client.sender(connectFrame)
@@ -92,13 +134,25 @@ func (client *Client) Connect() error {
 	if frm != nil {
 		client.connection.server = frm.Headers[message.Server]
 		client.connection.version = strings.Split(frm.Headers[message.Session], ",")
-		client.connection.heaetbeat = frm.Headers[message.Heartbeat]
+
+		heartbeat := frm.Headers[message.Heartbeat]
+		if len(heartbeat) > 0 {
+			hbsettings := strings.Split(heartbeat, ",")
+
+			//if hbsettings[1] == 0 then the server does not want to receive heart-beats else client MUST sent msg every max(client.connection.heartBeatClient, hbsettings[1]) milliseconds
+			serverClientsHeatBeat, _ := strconv.Atoi(hbsettings[1])
+			if client.connection.heartBeatClient < serverClientsHeatBeat {
+				client.connection.heartBeatClient = serverClientsHeatBeat
+			}
+			//conn.heartBeatServer = hbsettings[1]
+		}
+
 		client.session = make([]Session, 0)
 		client.session = append(client.session, Session{id: frm.Headers[message.Session]})
 	}
 
 	//Start gourtine for continuously read from socket
-	go readLoop(reader)
+	go readerLoop(reader)
 	return nil
 }
 
@@ -239,7 +293,7 @@ func (client *Client) NAck(msg *message.Message) {
 
 func (client *Client) sender(frm *frame.Frame) error {
 
-	if client.connection.tryDisconnect {
+	if frm.Command != frame.DISCONNECT && client.connection.tryDisconnect {
 		return errors.New("Disconnect in progress. Clients MUST NOT send any more frames after the DISCONNECT frame is sent.")
 	}
 
@@ -251,7 +305,7 @@ func (client *Client) sender(frm *frame.Frame) error {
 	return nil
 }
 
-func readLoop(reader *Reader) {
+func readerLoop(reader *Reader) {
 	for {
 		frm, err := reader.Read()
 		if err != nil {

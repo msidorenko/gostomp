@@ -106,8 +106,6 @@ func main() {
 			}
 			println("bye bye :-)")
 			os.Exit(0)
-			break
-
 		}
 	}
 

@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	newline = byte(10)
-	//cr       = byte(13)
+	newline  = byte(10)
 	colon    = byte(58)
 	nullByte = byte(0)
 )
@@ -26,37 +25,33 @@ func NewReader(reader io.Reader, bufferSize int) *Reader {
 }
 
 func (r *Reader) Read() (*frame.Frame, error) {
-
-	command, err := r.readLine()
+	cmd, err := r.readLine()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(command) == 0 {
-		// received a heart-beat newline char (or cr-lf)
+	//check for heart-beat
+	if len(cmd) == 0 {
 		return nil, nil
 	}
 
-	f := frame.NewFrame(string(command), []byte(""))
-
-	switch f.Command {
-	case frame.CONNECT, frame.CONNECTED, frame.DISCONNECT, frame.STOMP, frame.SEND,
-		frame.SUBSCRIBE, frame.UNSUBSCRIBE,
-		frame.ACK, frame.NACK,
-		frame.MESSAGE, frame.RECEIPT, frame.ERROR:
+	frm := frame.NewFrame(string(cmd), []byte(""))
+	switch frm.Command {
+	//Servers frame
+	case frame.CONNECTED, frame.MESSAGE, frame.RECEIPT, frame.ERROR:
 	default:
-		return nil, errors.New("invalid command")
+		return nil, errors.New("invalid server frame command")
 	}
 
-	//read and parse headers block
+	//read and parse headers
 	for {
 		header, err := r.readLine()
 		if err != nil {
 			return nil, err
 		}
 
+		//end of headers
 		if len(header) == 0 {
-			// empty line when catch end of headers
 			break
 		}
 
@@ -75,11 +70,12 @@ func (r *Reader) Read() (*frame.Frame, error) {
 			return nil, err
 		}
 
-		f.AddHeader(headerKey, headerValue)
+		frm.AddHeader(headerKey, headerValue)
+		//println(headerKey, ":", headerValue)
 	}
 
 	contentLength := 0
-	if headerContentLength, isset := f.Headers[message.ContentLength]; isset {
+	if headerContentLength, isset := frm.Headers[message.ContentLength]; isset {
 		contentLength, _ = strconv.Atoi(headerContentLength)
 	}
 
@@ -102,7 +98,7 @@ func (r *Reader) Read() (*frame.Frame, error) {
 			return nil, errors.New("Content length in fact more than header value. Invalid frame format")
 		}
 
-		f.Body = body
+		frm.Body = body
 
 	} else {
 		body, err := r.reader.ReadBytes(nullByte)
@@ -110,10 +106,10 @@ func (r *Reader) Read() (*frame.Frame, error) {
 			return nil, err
 		}
 		body = body[0 : len(body)-1]
-		f.Body = body
+		frm.Body = body
 	}
 
-	return f, nil
+	return frm, nil
 }
 
 //readLine read a line from input and strip LF or CR-LF
