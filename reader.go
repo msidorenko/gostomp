@@ -30,7 +30,6 @@ func (r *Reader) Read() (*frame.Frame, error) {
 		return nil, err
 	}
 
-	//check for heart-beat
 	if len(cmd) == 0 {
 		return nil, nil
 	}

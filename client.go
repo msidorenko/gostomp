@@ -3,12 +3,12 @@ package gostomp
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/msidorenko/gostomp/frame"
 	"github.com/msidorenko/gostomp/message"
 	"net"
 	"net/url"
-
 	"strconv"
 	"strings"
 )
@@ -19,6 +19,7 @@ const DELIVERY_ASYNC = false
 type Client struct {
 	connection Connection
 	session    []Session
+	Errors     chan error
 }
 
 var ReceiptPool = make(map[string]chan *frame.Frame)
@@ -65,12 +66,19 @@ func NewClient(dsn string) (*Client, error) {
 	hb := u.Query().Get("heart-beat")
 	if len(hb) > 0 {
 		hbsettings := strings.Split(hb, ",")
-		conn.heartBeatClient, _ = strconv.Atoi(hbsettings[0])
-		conn.heartBeatServer, _ = strconv.Atoi(hbsettings[1])
+		conn.heartBeatClient, err = strconv.ParseInt(hbsettings[0], 10, 64)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf(hbsettings[0] + " is not a integer"))
+		}
+		conn.heartBeatServer, err = strconv.ParseInt(hbsettings[1], 10, 64)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf(hbsettings[1] + " is not a integer"))
+		}
 	}
 
 	client := &Client{
 		connection: conn,
+		Errors:     make(chan error),
 	}
 	return client, nil
 }
@@ -117,7 +125,7 @@ func (client *Client) Connect() error {
 		connectFrame.AddHeader(message.Host, host)
 	}
 
-	connectFrame.AddHeader(message.Heartbeat, strconv.Itoa(client.connection.heartBeatClient)+","+strconv.Itoa(client.connection.heartBeatServer))
+	connectFrame.AddHeader(message.Heartbeat, fmt.Sprint(client.connection.heartBeatClient)+","+fmt.Sprint(client.connection.heartBeatServer))
 	connectFrame.AddHeader(message.Receipt, uuid.New().String())
 
 	err = client.sender(connectFrame)
@@ -139,12 +147,16 @@ func (client *Client) Connect() error {
 		if len(heartbeat) > 0 {
 			hbsettings := strings.Split(heartbeat, ",")
 
-			//if hbsettings[1] == 0 then the server does not want to receive heart-beats else client MUST sent msg every max(client.connection.heartBeatClient, hbsettings[1]) milliseconds
-			serverClientsHeatBeat, _ := strconv.Atoi(hbsettings[1])
-			if client.connection.heartBeatClient < serverClientsHeatBeat {
-				client.connection.heartBeatClient = serverClientsHeatBeat
+			serverServerHeartBeat, _ := strconv.ParseInt(hbsettings[0], 10, 64)
+			if client.connection.heartBeatServer < serverServerHeartBeat {
+				client.connection.heartBeatServer = serverServerHeartBeat
 			}
-			//conn.heartBeatServer = hbsettings[1]
+
+			//if hbsettings[1] == 0 then the server does not want to receive heart-beats else client MUST sent msg every max(client.connection.heartBeatClient, hbsettings[1]) milliseconds
+			serverClientsHeartBeat, _ := strconv.ParseInt(hbsettings[1], 10, 64)
+			if client.connection.heartBeatClient < serverClientsHeartBeat {
+				client.connection.heartBeatClient = serverClientsHeartBeat
+			}
 		}
 
 		client.session = make([]Session, 0)
@@ -152,7 +164,7 @@ func (client *Client) Connect() error {
 	}
 
 	//Start gourtine for continuously read from socket
-	go readerLoop(reader)
+	go client.readerLoop(reader)
 	return nil
 }
 
@@ -305,15 +317,19 @@ func (client *Client) sender(frm *frame.Frame) error {
 	return nil
 }
 
-func readerLoop(reader *Reader) {
+func (client *Client) readerLoop(reader *Reader) {
+
 	for {
 		frm, err := reader.Read()
 		if err != nil {
+			client.Errors <- err
 			return
 		}
 		if frm == nil {
+			//heart-beat
 			continue
 		}
+
 		switch frm.Command {
 		case frame.MESSAGE:
 			transferFrameToSubscriptions(frm)

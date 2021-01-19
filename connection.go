@@ -13,8 +13,8 @@ type Connection struct {
 	options         ConnectionOptions
 	server          string
 	version         []string
-	heartBeatClient int
-	heartBeatServer int
+	heartBeatClient int64
+	heartBeatServer int64
 	tryDisconnect   bool
 }
 
